@@ -263,1058 +263,1070 @@ pub fn render_html_to_terminal(html: &str) -> String {
         }
     }
 
-    let settings = Settings {
-        element_content_handlers: vec![
-            // === Strip HTML comments inside any element ===
-            comments!("*", {
-                move |c| {
-                    c.remove();
+    let element_content_handlers = vec![
+        // === Strip HTML comments inside any element ===
+        comments!("*", {
+            move |c| {
+                c.remove();
+                Ok(())
+            }
+        }),
+        // === Headers: h1, h2, h3 ===
+        element!("h1, h2, h3", {
+            move |el| {
+                el.before(BOLD_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(BOLD_OFF, ContentType::Html);
+                    end.before("\n", ContentType::Text);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Headers: h1, h2, h3 ===
-            element!("h1, h2, h3", {
-                move |el| {
-                    el.before(BOLD_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(BOLD_OFF, ContentType::Html);
-                        end.before("\n", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Sense Numbers: <sense-num> or class="sensenum" ===
+        element!("sense-num, .sensenum", {
+            move |el| {
+                // Added \n here to force a linefeed before the number
+                el.before(&format!("\n{}{}", BOLD_ON, WHITE), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Sense Numbers: <sense-num> or class="sensenum" ===
-            element!("sense-num, .sensenum", {
-                move |el| {
-                    // Added \n here to force a linefeed before the number
-                    el.before(&format!("\n{}{}", BOLD_ON, WHITE), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("pron", {
+            move |el| {
+                el.before(&format!("{}{}", BOLD_ON, WHITE), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            element!("pron", {
-                move |el| {
-                    el.before(&format!("{}{}", BOLD_ON, WHITE), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: <qz> Regional/grammar notes (Italic) ===
+        element!("qz", {
+            move |el| {
+                el.before(ITALIC_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: <qz> Regional/grammar notes (Italic) ===
-            element!("qz", {
-                move |el| {
-                    el.before(ITALIC_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: <z> Collocation item (Newline + 2 spaces) ===
+        element!("z", {
+            move |el| {
+                el.before("\n  ", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: <rq> Example sentence (Newline + 4 spaces + Light Blue + Italic) ===
+        element!("rq", {
+            move |el| {
+                // Inject 4 spaces, then turn on Light Blue and Italics
+                el.before(
+                    &format!("\n    {}{}", LIGHT_BLUE, ITALIC_ON),
+                    ContentType::Html,
+                );
+                push_end_tag_handler!(el, |end| {
+                    // Turn off Italics and reset color
+                    end.before(&format!("{}{}", ITALIC_OFF, COLOR_RESET), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: <z> Collocation item (Newline + 2 spaces) ===
-            element!("z", {
-                move |el| {
-                    el.before("\n  ", ContentType::Text);
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: <vtc> Category Header (Newline + Bold Orange) ===
+        element!("vtc", {
+            move |el| {
+                el.before(&format!("\n{}{}", BOLD_ON, ORANGE), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: <rq> Example sentence (Newline + 4 spaces + Light Blue + Italic) ===
-            element!("rq", {
-                move |el| {
-                    // Inject 4 spaces, then turn on Light Blue and Italics
-                    el.before(
-                        &format!("\n    {}{}", LIGHT_BLUE, ITALIC_ON),
-                        ContentType::Html,
-                    );
-                    push_end_tag_handler!(el, |end| {
-                        // Turn off Italics and reset color
-                        end.before(&format!("{}{}", ITALIC_OFF, COLOR_RESET), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: Headword ===
+        element!("wh", {
+            move |el| {
+                el.before(BOLD_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(BOLD_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: <vtc> Category Header (Newline + Bold Orange) ===
-            element!("vtc", {
-                move |el| {
-                    el.before(&format!("\n{}{}", BOLD_ON, ORANGE), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: Primary Part of Speech ===
+        element!("ue", {
+            move |el| {
+                // Add a space before to prevent "boatnoun"
+                el.before(&format!(" {}", ITALIC_ON), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: Headword ===
-            element!("wh", {
-                move |el| {
-                    el.before(BOLD_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(BOLD_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: Section Part of Speech ===
+        element!("uey", {
+            move |el| {
+                // Force onto a new line
+                el.before(&format!("\n{}", ITALIC_ON), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: Primary Part of Speech ===
-            element!("ue", {
-                move |el| {
-                    // Add a space before to prevent "boatnoun"
-                    el.before(&format!(" {}", ITALIC_ON), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: Category Menu (e.g. ADJECTIVE | VERB) ===
+        element!("vto", {
+            move |el| {
+                // Force the menu onto a new line
+                el.before("\n", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Oxford Collocations: Clean up remaining silent structural tags ===
+        element!("uh, vt, qkz, co, sa, sac", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === <block-title>: Bold Blue ===
+        element!("block-title", {
+            move |el| {
+                el.before(&format!("{}{}", BOLD_ON, BLUE), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: Section Part of Speech ===
-            element!("uey", {
-                move |el| {
-                    // Force onto a new line
-                    el.before(&format!("\n{}", ITALIC_ON), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === <lb> Label: Italic ===
+        element!("lb", {
+            move |el| {
+                el.before(ITALIC_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Oxford Collocations: Category Menu (e.g. ADJECTIVE | VERB) ===
-            element!("vto", {
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Remove duplicate/noisy elements entirely ===
+        element!(
+            ".hyphenation.frequent, .popetymology, .popverbs, .popcolloheader",
+            {
                 move |el| {
-                    // Force the menu onto a new line
-                    el.before("\n", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Oxford Collocations: Clean up remaining silent structural tags ===
-            element!("uh, vt, qkz, co, sa, sac", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === <block-title>: Bold Blue ===
-            element!("block-title", {
-                move |el| {
-                    el.before(&format!("{}{}", BOLD_ON, BLUE), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === <lb> Label: Italic ===
-            element!("lb", {
-                move |el| {
-                    el.before(ITALIC_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Remove duplicate/noisy elements entirely ===
-            element!(
-                ".hyphenation.frequent, .popetymology, .popverbs, .popcolloheader",
-                {
-                    move |el| {
-                        // This kills the duplicate headword, the ALL CAPS duplicates,
-                        // and completely silences the multiple <table> tags.
-                        el.remove();
-                        Ok(())
-                    }
-                }
-            ),
-            // === Longman: Popup buttons (Etymology, Verb Table, Collocations) ===
-            element!(".popup-button", {
-                move |el| {
-                    // Start each section on a fresh line
-                    el.before("\n", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Etymology Formatting ===
-            element!(".at-link .hyphenation", {
-                move |el| {
-                    el.before(" ", ContentType::Text); // Add space before "render"
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!(".etymology", {
-                move |el| {
-                    // Inject comma, space, and Yellow ANSI code
-                    el.before(&format!(", {}", YELLOW), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(COLOR_RESET, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Verb Table Formatting ===
-            element!(".lemma", {
-                move |el| {
-                    el.before(" ", ContentType::Text); // Space before "render"
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!(".verbtable", {
-                move |el| {
-                    push_end_tag_handler!(el, |end| {
-                        // Print ": not shown" exactly ONCE at the end of the line
-                        end.before(": not shown", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Etymology Date (Yellow) ===
-            element!(".etymdate", {
-                move |el| {
-                    el.before(YELLOW, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(COLOR_RESET, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Etymology Origin (Italic) ===
-            element!(".etymorigin", {
-                move |el| {
-                    el.before(ITALIC_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Verb Tables (Hide entire table, print stub) ===
-            element!("table", {
-                move |el| {
-                    el.remove(); // Silently delete the tables and ALL text inside them
-                    Ok(())
-                }
-            }),
-            // === Longman: Sense Spacing Fixes ===
-            element!(".signpost", {
-                move |el| {
-                    // Add a space before and after the ALL CAPS signpost
-                    // so it doesn't fuse with the number or definition
-                    el.before(" ", ContentType::Text);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(" ", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Force newline before .sense tags (like "1 CAUSE TO BECOME") ===
-            element!("span.sense.newline", {
-                move |el| {
-                    el.before("\n", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman: Force newline after registerlab (e.g. "formal") ===
-            element!(".registerlab", {
-                move |el| {
-                    push_end_tag_handler!(el, |end| {
-                        // We check if it's the main header one by ensuring it breaks to a new line
-                        // Note: Because registerlab is used inline later, we might just add a simple space
-                        // But since you asked for a newline after "formal", we can drop it in.
-                        end.before("\n", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Longman cleanup: Remove buttons/scripts leaking text ===
-            element!(".tail, .colloheader", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Subscript: <sub> -> Bold ===
-            element!("sub", {
-                move |el| {
-                    el.before(BOLD_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(BOLD_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Clean up structural tags (remove tags, keep text content) ===
-            element!("subentry, exmplgrp, exmplunit, exmpl-start, exmpl", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // I've also added these to clean up the rest of the raw tags in your output:
-            element!(
-                "prongrp, pronunit, container, etym, subentryblk, inflgrp, influnit, infl",
-                {
-                    move |el| {
-                        el.remove_and_keep_content();
-                        Ok(())
-                    }
-                }
-            ),
-            // <xrhw> cross-reference headword: green
-            element!("xrhw", {
-                move |el| {
-                    el.before(GREEN, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(COLOR_RESET, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // <var> variant: cyan
-            element!("var", {
-                move |el| {
-                    el.before(CYAN, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(COLOR_RESET, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // <vargrp> variant group: newline before, keep content
-            element!("vargrp", {
-                move |el| {
-                    el.before("\n", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Passthrough structural tags (remove tags, keep content) ===
-            element!("xrefgrp, groupintro, xrefunit, xref, varunit", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Dictionary Sense: <sense> ===
-            element!("sense", {
-                move |el| {
-                    el.before(&format!("{}{}", BOLD_ON, YELLOW), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Word Detail Class: .wordDetail ===
-            element!(".wordDetail", {
-                move |el| {
-                    el.before(DIM, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(DIM_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Strip <script> and all content inside ===
-            element!("script", {
-                move |el| {
+                    // This kills the duplicate headword, the ALL CAPS duplicates,
+                    // and completely silences the multiple <table> tags.
                     el.remove();
                     Ok(())
                 }
-            }),
-            text!("script", {
-                move |t| {
-                    t.remove();
+            }
+        ),
+        // === Longman: Popup buttons (Etymology, Verb Table, Collocations) ===
+        element!(".popup-button", {
+            move |el| {
+                // Start each section on a fresh line
+                el.before("\n", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Etymology Formatting ===
+        element!(".at-link .hyphenation", {
+            move |el| {
+                el.before(" ", ContentType::Text); // Add space before "render"
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!(".etymology", {
+            move |el| {
+                // Inject comma, space, and Yellow ANSI code
+                el.before(&format!(", {}", YELLOW), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(COLOR_RESET, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Strip <style> and all content inside ===
-            element!("style", {
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Verb Table Formatting ===
+        element!(".lemma", {
+            move |el| {
+                el.before(" ", ContentType::Text); // Space before "render"
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!(".verbtable", {
+            move |el| {
+                push_end_tag_handler!(el, |end| {
+                    // Print ": not shown" exactly ONCE at the end of the line
+                    end.before(": not shown", ContentType::Text);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Etymology Date (Yellow) ===
+        element!(".etymdate", {
+            move |el| {
+                el.before(YELLOW, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(COLOR_RESET, ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Etymology Origin (Italic) ===
+        element!(".etymorigin", {
+            move |el| {
+                el.before(ITALIC_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Verb Tables (Hide entire table, print stub) ===
+        element!("table", {
+            move |el| {
+                el.remove(); // Silently delete the tables and ALL text inside them
+                Ok(())
+            }
+        }),
+        // === Longman: Sense Spacing Fixes ===
+        element!(".signpost", {
+            move |el| {
+                // Add a space before and after the ALL CAPS signpost
+                // so it doesn't fuse with the number or definition
+                el.before(" ", ContentType::Text);
+                push_end_tag_handler!(el, |end| {
+                    end.before(" ", ContentType::Text);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Force newline before .sense tags (like "1 CAUSE TO BECOME") ===
+        element!("span.sense.newline", {
+            move |el| {
+                el.before("\n", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman: Force newline after registerlab (e.g. "formal") ===
+        element!(".registerlab", {
+            move |el| {
+                push_end_tag_handler!(el, |end| {
+                    // We check if it's the main header one by ensuring it breaks to a new line
+                    // Note: Because registerlab is used inline later, we might just add a simple space
+                    // But since you asked for a newline after "formal", we can drop it in.
+                    end.before("\n", ContentType::Text);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Longman cleanup: Remove buttons/scripts leaking text ===
+        element!(".tail, .colloheader", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Subscript: <sub> -> Bold ===
+        element!("sub", {
+            move |el| {
+                el.before(BOLD_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(BOLD_OFF, ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Clean up structural tags (remove tags, keep text content) ===
+        element!("subentry, exmplgrp, exmplunit, exmpl-start, exmpl", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // I've also added these to clean up the rest of the raw tags in your output:
+        element!(
+            "prongrp, pronunit, container, etym, subentryblk, inflgrp, influnit, infl",
+            {
                 move |el| {
-                    el.remove();
+                    el.remove_and_keep_content();
                     Ok(())
                 }
-            }),
-            text!("style", {
-                move |t| {
-                    t.remove();
+            }
+        ),
+        // <xrhw> cross-reference headword: green
+        element!("xrhw", {
+            move |el| {
+                el.before(GREEN, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(COLOR_RESET, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Strip <link>, <img>, <meta> (void elements, no content) ===
-            element!("link", {
-                move |el| {
-                    el.remove();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <var> variant: cyan
+        element!("var", {
+            move |el| {
+                el.before(CYAN, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(COLOR_RESET, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            element!("img", {
-                move |el| {
-                    el.remove();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <vargrp> variant group: newline before, keep content
+        element!("vargrp", {
+            move |el| {
+                el.before("\n", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Passthrough structural tags (remove tags, keep content) ===
+        element!("xrefgrp, groupintro, xrefunit, xref, varunit", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Dictionary Sense: <sense> ===
+        element!("sense", {
+            move |el| {
+                el.before(&format!("{}{}", BOLD_ON, YELLOW), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            element!("meta", {
-                move |el| {
-                    el.remove();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Word Detail Class: .wordDetail ===
+        element!(".wordDetail", {
+            move |el| {
+                el.before(DIM, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(DIM_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === <hr> → horizontal rule ===
-            element!("hr", {
-                move |el| {
-                    el.replace(&format!("\n{}", "─".repeat(40)), ContentType::Text);
-                    Ok(())
-                }
-            }),
-            // === <font> tag: handle color and size attributes ===
-            element!("font", {
-                move |el| {
-                    let mut did_color = false;
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Strip <script> and all content inside ===
+        element!("script", {
+            move |el| {
+                el.remove();
+                Ok(())
+            }
+        }),
+        text!("script", {
+            move |t| {
+                t.remove();
+                Ok(())
+            }
+        }),
+        // === Strip <style> and all content inside ===
+        element!("style", {
+            move |el| {
+                el.remove();
+                Ok(())
+            }
+        }),
+        text!("style", {
+            move |t| {
+                t.remove();
+                Ok(())
+            }
+        }),
+        // === Strip <link>, <img>, <meta> (void elements, no content) ===
+        element!("link", {
+            move |el| {
+                el.remove();
+                Ok(())
+            }
+        }),
+        element!("img", {
+            move |el| {
+                el.remove();
+                Ok(())
+            }
+        }),
+        element!("meta", {
+            move |el| {
+                el.remove();
+                Ok(())
+            }
+        }),
+        // === <hr> → horizontal rule ===
+        element!("hr", {
+            move |el| {
+                el.replace(&format!("\n{}", "─".repeat(40)), ContentType::Text);
+                Ok(())
+            }
+        }),
+        // === <font> tag: handle color and size attributes ===
+        element!("font", {
+            move |el| {
+                let mut did_color = false;
 
-                    if let Some(color_val) = el.get_attribute("color") {
-                        if let Some(ansi) = color_to_ansi(&color_val) {
+                if let Some(color_val) = el.get_attribute("color") {
+                    if let Some(ansi) = color_to_ansi(&color_val) {
+                        el.before(&ansi, ContentType::Html);
+                        did_color = true;
+                    }
+                }
+
+                if let Some(size_val) = el.get_attribute("size") {
+                    let size_str = size_val.trim();
+                    let is_large = size_str.starts_with('+')
+                        || size_str.parse::<i32>().map_or(false, |n| n > 3);
+                    if is_large {
+                        el.before(BOLD_ON, ContentType::Html);
+                        let needs_color_reset = did_color;
+                        push_end_tag_handler!(el, move |end| {
+                            let mut reset = BOLD_OFF.to_string();
+                            if needs_color_reset {
+                                reset.push_str(COLOR_RESET);
+                            }
+                            end.before(&reset, ContentType::Html);
+                            end.remove();
+                            Ok(())
+                        });
+                        el.remove_and_keep_content();
+                        return Ok(());
+                    }
+                }
+
+                if did_color {
+                    push_end_tag_handler!(el, |end| {
+                        end.before(COLOR_RESET, ContentType::Html);
+                        end.remove();
+                        Ok(())
+                    });
+                }
+
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === <span> tag: parse inline style for color ===
+        element!("span", {
+            move |el| {
+                let mut did_color = false;
+
+                if let Some(style) = el.get_attribute("style") {
+                    if let Some(color_val) = extract_style_property(&style, "color") {
+                        if let Some(ansi) = color_to_ansi(color_val) {
                             el.before(&ansi, ContentType::Html);
                             did_color = true;
                         }
                     }
+                }
 
-                    if let Some(size_val) = el.get_attribute("size") {
-                        let size_str = size_val.trim();
-                        let is_large = size_str.starts_with('+')
-                            || size_str.parse::<i32>().map_or(false, |n| n > 3);
-                        if is_large {
-                            el.before(BOLD_ON, ContentType::Html);
-                            let needs_color_reset = did_color;
-                            push_end_tag_handler!(el, move |end| {
-                                let mut reset = BOLD_OFF.to_string();
-                                if needs_color_reset {
-                                    reset.push_str(COLOR_RESET);
-                                }
-                                end.before(&reset, ContentType::Html);
-                                end.remove();
-                                Ok(())
-                            });
-                            el.remove_and_keep_content();
-                            return Ok(());
-                        }
-                    }
-
-                    if did_color {
-                        push_end_tag_handler!(el, |end| {
-                            end.before(COLOR_RESET, ContentType::Html);
-                            end.remove();
-                            Ok(())
-                        });
-                    }
-
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === <span> tag: parse inline style for color ===
-            element!("span", {
-                move |el| {
-                    let mut did_color = false;
-
-                    if let Some(style) = el.get_attribute("style") {
-                        if let Some(color_val) = extract_style_property(&style, "color") {
-                            if let Some(ansi) = color_to_ansi(color_val) {
-                                el.before(&ansi, ContentType::Html);
-                                did_color = true;
-                            }
-                        }
-                    }
-
-                    if did_color {
-                        push_end_tag_handler!(el, |end| {
-                            end.before(COLOR_RESET, ContentType::Html);
-                            end.remove();
-                            Ok(())
-                        });
-                    }
-
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Structural OED4 tags ===
-            element!("se0", {
-                let indent = &indent_level;
-                move |el| {
-                    *indent.borrow_mut() = 0;
-                    el.before("\n\n", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("se2", {
-                let indent = &indent_level;
-                move |el| {
-                    *indent.borrow_mut() = 2;
-                    el.before(&format!("\n{}", SE2_INDENT), ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("se4", {
-                let indent = &indent_level;
-                move |el| {
-                    *indent.borrow_mut() = 4;
-                    el.before(&format!("\n{}", SE4_INDENT), ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("se6", {
-                let indent = &indent_level;
-                move |el| {
-                    *indent.borrow_mut() = 6;
-                    el.before(&format!("\n{}", SE6_INDENT), ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("se8", {
-                let indent = &indent_level;
-                move |el| {
-                    *indent.borrow_mut() = 8;
-                    el.before(&format!("\n{}", SE8_INDENT), ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("q", {
-                let indent = &indent_level;
-                move |el| {
-                    let level = *indent.borrow();
-                    el.before(&format!("\n{}", indent_str(level)), ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("seg", {
-                move |el| {
-                    el.replace("\n───\n", ContentType::Text);
-                    Ok(())
-                }
-            }),
-            element!("spg", {
-                move |el| {
-                    el.before(&format!("\n{}", DIM), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(DIM_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("dg", {
-                move |el| {
-                    el.before("\n", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === OED4 inline formatting ===
-
-            // <hw> headword: bold + underline
-            element!("hw", {
-                move |el| {
-                    el.before(&format!("{}{}", BOLD_ON, UNDERLINE_ON), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", UNDERLINE_OFF, BOLD_OFF), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // <ph> phonetic: green
-            element!("ph", {
-                move |el| {
-                    el.before(GREEN, ContentType::Html);
+                if did_color {
                     push_end_tag_handler!(el, |end| {
                         end.before(COLOR_RESET, ContentType::Html);
                         end.remove();
                         Ok(())
                     });
-                    el.remove_and_keep_content();
-                    Ok(())
                 }
-            }),
-            // <d> date: yellow, space after
-            element!("d", {
-                move |el| {
-                    el.before(YELLOW, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{} ", COLOR_RESET), ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Structural OED4 tags ===
+        element!("se0", {
+            let indent = &indent_level;
+            move |el| {
+                *indent.borrow_mut() = 0;
+                el.before("\n\n", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("se2", {
+            let indent = &indent_level;
+            move |el| {
+                *indent.borrow_mut() = 2;
+                el.before(&format!("\n{}", SE2_INDENT), ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("se4", {
+            let indent = &indent_level;
+            move |el| {
+                *indent.borrow_mut() = 4;
+                el.before(&format!("\n{}", SE4_INDENT), ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("se6", {
+            let indent = &indent_level;
+            move |el| {
+                *indent.borrow_mut() = 6;
+                el.before(&format!("\n{}", SE6_INDENT), ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("se8", {
+            let indent = &indent_level;
+            move |el| {
+                *indent.borrow_mut() = 8;
+                el.before(&format!("\n{}", SE8_INDENT), ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("q", {
+            let indent = &indent_level;
+            move |el| {
+                let level = *indent.borrow();
+                el.before(&format!("\n{}", indent_str(level)), ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("seg", {
+            move |el| {
+                el.replace("\n───\n", ContentType::Text);
+                Ok(())
+            }
+        }),
+        element!("spg", {
+            move |el| {
+                el.before(&format!("\n{}", DIM), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(DIM_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // <ch> citation author: bold
-            element!("ch", {
-                move |el| {
-                    el.before(BOLD_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(BOLD_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("dg", {
+            move |el| {
+                el.before("\n", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === OED4 inline formatting ===
+
+        // <hw> headword: bold + underline
+        element!("hw", {
+            move |el| {
+                el.before(&format!("{}{}", BOLD_ON, UNDERLINE_ON), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{}{}", UNDERLINE_OFF, BOLD_OFF), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // <qt> quotation text: italic
-            element!("qt", {
-                move |el| {
-                    el.before(ITALIC_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <ph> phonetic: green
+        element!("ph", {
+            move |el| {
+                el.before(GREEN, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(COLOR_RESET, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // <ls> sense label: bold
-            element!("ls", {
-                move |el| {
-                    el.before(BOLD_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(BOLD_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <d> date: yellow, space after
+        element!("d", {
+            move |el| {
+                el.before(YELLOW, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(&format!("{} ", COLOR_RESET), ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // <w> abbreviation: dim
-            element!("w", {
-                move |el| {
-                    el.before(DIM, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(DIM_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <ch> citation author: bold
+        element!("ch", {
+            move |el| {
+                el.before(BOLD_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(BOLD_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Collins dictionary: <def> definition → content kept, <posp> part of speech → italic ===
-            element!("def", {
-                move |el| {
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <qt> quotation text: italic
+        element!("qt", {
+            move |el| {
+                el.before(ITALIC_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            element!("posp", {
-                move |el| {
-                    el.before(ITALIC_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <ls> sense label: bold
+        element!("ls", {
+            move |el| {
+                el.before(BOLD_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(BOLD_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Collins: strip entry-index (navigation links, not content) ===
-            element!("entry-index", {
-                move |el| {
-                    el.remove();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <w> abbreviation: dim
+        element!("w", {
+            move |el| {
+                el.before(DIM, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(DIM_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            text!("entry-index", {
-                move |t| {
-                    t.remove();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Collins dictionary: <def> definition → content kept, <posp> part of speech → italic ===
+        element!("def", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("posp", {
+            move |el| {
+                el.before(ITALIC_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === <a> links ===
-            element!("a", {
-                move |el| {
-                    let href = el.get_attribute("href").unwrap_or_default();
-                    if href.starts_with("entry://") {
-                        let target = href["entry://".len()..].to_string();
-                        el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
-                        // Only show [→target] for actual dictionary entry links,
-                        // not for meta/guide links (which contain '#' fragments)
-                        let show_target = !target.contains('#');
-                        push_end_tag_handler!(el, move |end| {
-                            if show_target {
-                                end.before(
-                                    &format!(
-                                        "{}{} [→{}]{}{}",
-                                        UNDERLINE_OFF, DIM, target, DIM_OFF, COLOR_RESET
-                                    ),
-                                    ContentType::Html,
-                                );
-                            } else {
-                                end.before(
-                                    &format!("{}{}", UNDERLINE_OFF, COLOR_RESET),
-                                    ContentType::Html,
-                                );
-                            }
-                            end.remove();
-                            Ok(())
-                        });
-                    } else if !href.is_empty() {
-                        el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
-                        push_end_tag_handler!(el, |end| {
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Collins: strip entry-index (navigation links, not content) ===
+        element!("entry-index", {
+            move |el| {
+                el.remove();
+                Ok(())
+            }
+        }),
+        text!("entry-index", {
+            move |t| {
+                t.remove();
+                Ok(())
+            }
+        }),
+        // === <a> links ===
+        element!("a", {
+            move |el| {
+                let href = el.get_attribute("href").unwrap_or_default();
+                if href.starts_with("entry://") {
+                    let target = href["entry://".len()..].to_string();
+                    el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
+                    // Only show [→target] for actual dictionary entry links,
+                    // not for meta/guide links (which contain '#' fragments)
+                    let show_target = !target.contains('#');
+                    push_end_tag_handler!(el, move |end| {
+                        if show_target {
+                            end.before(
+                                &format!(
+                                    "{}{} [→{}]{}{}",
+                                    UNDERLINE_OFF, DIM, target, DIM_OFF, COLOR_RESET
+                                ),
+                                ContentType::Html,
+                            );
+                        } else {
                             end.before(
                                 &format!("{}{}", UNDERLINE_OFF, COLOR_RESET),
                                 ContentType::Html,
                             );
-                            end.remove();
-                            Ok(())
-                        });
-                    }
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Standard HTML formatting ===
-            element!("b, strong", {
-                move |el| {
-                    el.before(BOLD_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(BOLD_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("i, em", {
-                move |el| {
-                    el.before(ITALIC_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("u", {
-                move |el| {
-                    el.before(UNDERLINE_ON, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(UNDERLINE_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("br", {
-                move |el| {
-                    el.replace("\n", ContentType::Text);
-                    Ok(())
-                }
-            }),
-            // === Paragraphs & Block Elements ===
-            element!("p, div, tr, section", {
-                let indent = &indent_level;
-                move |el| {
-                    // Skip adding block newlines for Longman inline-wrapper divs
-                    if let Some(class) = el.get_attribute("class") {
-                        if class.contains("lemma")
-                            || class.contains("etymology")
-                            || class.contains("verbtable")
-                            || class.contains("at-link")
-                            || class.contains("content")
-                        {
-                            el.remove_and_keep_content();
-                            return Ok(());
                         }
+                        end.remove();
+                        Ok(())
+                    });
+                } else if !href.is_empty() {
+                    el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
+                    push_end_tag_handler!(el, |end| {
+                        end.before(
+                            &format!("{}{}", UNDERLINE_OFF, COLOR_RESET),
+                            ContentType::Html,
+                        );
+                        end.remove();
+                        Ok(())
+                    });
+                }
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Standard HTML formatting ===
+        element!("b, strong", {
+            move |el| {
+                el.before(BOLD_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(BOLD_OFF, ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("i, em", {
+            move |el| {
+                el.before(ITALIC_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("u", {
+            move |el| {
+                el.before(UNDERLINE_ON, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(UNDERLINE_OFF, ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("br", {
+            move |el| {
+                el.replace("\n", ContentType::Text);
+                Ok(())
+            }
+        }),
+        // === Paragraphs & Block Elements ===
+        element!("p, div, tr, section", {
+            let indent = &indent_level;
+            move |el| {
+                // Skip adding block newlines for Longman inline-wrapper divs
+                if let Some(class) = el.get_attribute("class") {
+                    if class.contains("lemma")
+                        || class.contains("etymology")
+                        || class.contains("verbtable")
+                        || class.contains("at-link")
+                        || class.contains("content")
+                    {
+                        el.remove_and_keep_content();
+                        return Ok(());
                     }
+                }
 
-                    let indent2 = indent.clone();
-                    push_end_tag_handler!(el, move |end| {
-                        let level = *indent2.borrow();
-                        end.before(&format!("\n{}", indent_str(level)), ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                let indent2 = indent.clone();
+                push_end_tag_handler!(el, move |end| {
+                    let level = *indent2.borrow();
+                    end.before(&format!("\n{}", indent_str(level)), ContentType::Text);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Ordered Lists: <ol> ===
-            element!("ol", {
-                let counters = std::rc::Rc::clone(&list_counters);
-                move |el| {
-                    counters.borrow_mut().push(1);
-                    el.before("\n", ContentType::Text);
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Ordered Lists: <ol> ===
+        element!("ol", {
+            let counters = std::rc::Rc::clone(&list_counters);
+            move |el| {
+                counters.borrow_mut().push(1);
+                el.before("\n", ContentType::Text);
 
-                    let counters_end = std::rc::Rc::clone(&counters);
-                    push_end_tag_handler!(el, move |end| {
-                        counters_end.borrow_mut().pop();
-                        // Add a newline when the list closes to separate following content
-                        end.before("\n", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                let counters_end = std::rc::Rc::clone(&counters);
+                push_end_tag_handler!(el, move |end| {
+                    counters_end.borrow_mut().pop();
+                    // Add a newline when the list closes to separate following content
+                    end.before("\n", ContentType::Text);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Unordered Lists: <ul> ===
-            element!("ul", {
-                move |el| {
-                    el.before("\n", ContentType::Text);
-                    push_end_tag_handler!(el, |end| {
-                        // Add a newline when the list closes
-                        end.before("\n", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Unordered Lists: <ul> ===
+        element!("ul", {
+            move |el| {
+                el.before("\n", ContentType::Text);
+                push_end_tag_handler!(el, |end| {
+                    // Add a newline when the list closes
+                    end.before("\n", ContentType::Text);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === List Items: <li> ===
-            element!("li", {
-                let counters = std::rc::Rc::clone(&list_counters);
-                move |el| {
-                    let mut b_counters = counters.borrow_mut();
-                    // If we are inside an <ol>, get the number and increment it.
-                    // If we are inside a <ul> (or missing <ol>), fallback to a bullet point.
-                    let prefix = if let Some(last) = b_counters.last_mut() {
-                        let n = *last;
-                        *last += 1;
-                        format!("\n{} ", n)
-                    } else {
-                        "\n• ".to_string()
-                    };
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === List Items: <li> ===
+        element!("li", {
+            let counters = std::rc::Rc::clone(&list_counters);
+            move |el| {
+                let mut b_counters = counters.borrow_mut();
+                // If we are inside an <ol>, get the number and increment it.
+                // If we are inside a <ul> (or missing <ol>), fallback to a bullet point.
+                let prefix = if let Some(last) = b_counters.last_mut() {
+                    let n = *last;
+                    *last += 1;
+                    format!("\n{} ", n)
+                } else {
+                    "\n• ".to_string()
+                };
 
-                    el.before(&prefix, ContentType::Text);
-                    el.remove_and_keep_content();
+                el.before(&prefix, ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Part of Speech: <pos> tag or class="pos" ===
+        element!("pos, .pos", {
+            move |el| {
+                // Prepending a space fixes the missing gap after the pronunciation
+                el.before(&format!(" {}", ITALIC_ON), ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(ITALIC_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Part of Speech: <pos> tag or class="pos" ===
-            element!("pos, .pos", {
-                move |el| {
-                    // Prepending a space fixes the missing gap after the pronunciation
-                    el.before(&format!(" {}", ITALIC_ON), ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(ITALIC_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Chambers structural tags ===
+        element!("cb13, cb13_entry, m_entry, mwe", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("td", {
+            move |el| {
+                el.before("\t", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("sup", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("small", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <st> struck-through text in OED → dim
+        element!("st", {
+            move |el| {
+                el.before(DIM, ContentType::Html);
+                push_end_tag_handler!(el, |end| {
+                    end.before(DIM_OFF, ContentType::Html);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            // === Chambers structural tags ===
-            element!("cb13, cb13_entry, m_entry, mwe", {
-                move |el| {
-                    el.remove_and_keep_content();
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Passthrough structural wrappers: remove tag, keep content ===
+        // OED4: phon, gbl, gbr, n, c, cw, hg, idg, see, cnt
+        // Webster: com
+        // Translation: trn
+        // Collins: superentry, entry, hwblk, hwgrp, hwunit, datablk,
+        //          gramcat, pospgrp, pospunit, sensecat, defgrp, defunit
+        element!("phon, gbl, gbr, n, c, cw, hg, idg, see, cnt, com, trn", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // Collins dictionary structural tags — with spacing
+        element!("superentry, entry, hwgrp, hwunit, datablk", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <hwblk> headword block: add newline after to separate from definition
+        element!("hwblk", {
+            move |el| {
+                push_end_tag_handler!(el, |end| {
+                    end.before("\n", ContentType::Text);
+                    end.remove();
                     Ok(())
-                }
-            }),
-            element!("td", {
-                move |el| {
-                    el.before("\t", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("sup", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("small", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // <st> struck-through text in OED → dim
-            element!("st", {
-                move |el| {
-                    el.before(DIM, ContentType::Html);
-                    push_end_tag_handler!(el, |end| {
-                        end.before(DIM_OFF, ContentType::Html);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Passthrough structural wrappers: remove tag, keep content ===
-            // OED4: phon, gbl, gbr, n, c, cw, hg, idg, see, cnt
-            // Webster: com
-            // Translation: trn
-            // Collins: superentry, entry, hwblk, hwgrp, hwunit, datablk,
-            //          gramcat, pospgrp, pospunit, sensecat, defgrp, defunit
-            element!("phon, gbl, gbr, n, c, cw, hg, idg, see, cnt, com, trn", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // Collins dictionary structural tags — with spacing
-            element!("superentry, entry, hwgrp, hwunit, datablk", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // <hwblk> headword block: add newline after to separate from definition
-            element!("hwblk", {
-                move |el| {
-                    push_end_tag_handler!(el, |end| {
-                        end.before("\n", ContentType::Text);
-                        end.remove();
-                        Ok(())
-                    });
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // <gramcat> grammar category: add space before for separation
-            element!("gramcat", {
-                move |el| {
-                    el.before(" ", ContentType::Text);
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // === Sense Categories: track nesting for indentation ===
-            element!("sensecat", {
-                let depth = std::rc::Rc::clone(&sensecat_depth);
-                move |el| {
-                    // Indent 4 spaces per depth level (0 spaces for main senses, 4 for sub-senses)
-                    let indent_str = "    ".repeat(*depth.borrow());
-                    el.before(&format!("\n{}", indent_str), ContentType::Text);
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // <gramcat> grammar category: add space before for separation
+        element!("gramcat", {
+            move |el| {
+                el.before(" ", ContentType::Text);
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // === Sense Categories: track nesting for indentation ===
+        element!("sensecat", {
+            let depth = std::rc::Rc::clone(&sensecat_depth);
+            move |el| {
+                // Indent 4 spaces per depth level (0 spaces for main senses, 4 for sub-senses)
+                let indent_str = "    ".repeat(*depth.borrow());
+                el.before(&format!("\n{}", indent_str), ContentType::Text);
 
-                    // Increase depth for any tags nested inside this one
-                    *depth.borrow_mut() += 1;
+                // Increase depth for any tags nested inside this one
+                *depth.borrow_mut() += 1;
 
-                    let depth_end = std::rc::Rc::clone(&depth);
-                    push_end_tag_handler!(el, move |end| {
-                        // Decrease depth when we exit the tag
-                        *depth_end.borrow_mut() -= 1;
-                        end.remove();
-                        Ok(())
-                    });
+                let depth_end = std::rc::Rc::clone(&depth);
+                push_end_tag_handler!(el, move |end| {
+                    // Decrease depth when we exit the tag
+                    *depth_end.borrow_mut() -= 1;
+                    end.remove();
+                    Ok(())
+                });
 
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            element!("pospgrp, pospunit, defgrp, defunit", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-            // The OED4 root element
-            element!("oed4", {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
-            }),
-        ],
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        element!("pospgrp, pospunit, defgrp, defunit", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+        // The OED4 root element
+        element!("oed4", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
+    ];
+
+    let document_content_handlers = vec![
         // === Strip HTML comments at document level (not inside any element) ===
-        document_content_handlers: vec![doc_comments!(|c| {
+        doc_comments!(|c| {
             c.remove();
             Ok(())
-        })],
-        ..Settings::default()
-    };
+        }),
+    ];
+
+    let mut settings = Settings::new();
+
+    // Append each element handler using the v3 builder API
+    for handler in element_content_handlers {
+        settings = settings.append_element_content_handler(handler);
+    }
+
+    // Append the document handlers
+    for handler in document_content_handlers {
+        settings = settings.append_document_content_handler(handler);
+    }
 
     let mut rewriter = HtmlRewriter::new(settings, |chunk: &[u8]| {
         if let Ok(text) = std::str::from_utf8(chunk) {
