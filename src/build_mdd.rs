@@ -8,7 +8,7 @@ use mdx::builder::{BuilderConfig, SourceType, ZDBBuilder};
 use crate::report::print_progress;
 
 pub fn run_build_mdd(directory: &str, password: &str, file: &str) -> Result<()> {
-    info!("Building MDD from directory: {}", directory);
+    info!("Building MDD from directory: {directory}");
 
     let dir_path = PathBuf::from(shellexpand::tilde(directory).to_string());
 
@@ -37,14 +37,16 @@ pub fn run_build_mdd(directory: &str, password: &str, file: &str) -> Result<()> 
     info!("Output file: {}", output_file.display());
 
     // Create builder config for MDD file
-    let mut config = BuilderConfig::default();
-    config.input_path = dir_path.to_string_lossy().to_string();
-    config.output_file = output_file.to_string_lossy().to_string();
-    config.data_source_format = SourceType::Directory;
-    config.content_type = "Binary".to_string(); // MDD files typically contain resources
-    config.default_sorting_locale = "root".to_string();
-    config.build_mdd = true;
-    config.password = password.to_string();
+    let config = BuilderConfig {
+        input_path: dir_path.to_string_lossy().to_string(),
+        output_file: output_file.to_string_lossy().to_string(),
+        data_source_format: SourceType::Directory,
+        content_type: "Binary".to_string(), // MDD files typically contain resources
+        default_sorting_locale: "root".to_string(),
+        build_mdd: true,
+        password: password.to_string(),
+        ..Default::default()
+    };
 
     // Use ZDBBuilder to build the MDD file with DataDirLoader
     ZDBBuilder::build_with_config(&config, Some(print_progress))?;

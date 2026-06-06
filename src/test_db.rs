@@ -39,8 +39,7 @@ where
     };
 
     info!(
-        "Total entry count: {}, testing {} entries from 0 to {}",
-        entry_count, entries_to_test, entry_count
+        "Total entry count: {entry_count}, testing {entries_to_test} entries from 0 to {entry_count}"
     );
 
     let mut indices: Vec<u64> = (0..entry_count).collect();
@@ -67,7 +66,7 @@ where
 // test_mdx 函数 - 包含文件打开和数据库初始化逻辑
 pub fn test_mdx(file_path: &PathBuf, test_count: Option<usize>, random: bool) -> Result<()> {
     let mdx_url = Url::from_file_path(file_path)
-        .map_err(|_| mdx::ZdbError::invalid_path(format!("{}", file_path.display())))?;
+        .map_err(|()| mdx::ZdbError::invalid_path(format!("{}", file_path.display())))?;
 
     println!("Opening mdx db: {}", file_path.display());
     let mut mdx_reader = MdxReader::from_url(&mdx_url, "")?;
@@ -139,17 +138,21 @@ pub fn run_test_db(
     if target.is_dir() {
         println!("Check Directory: {}", target.display());
         let dir_url = Url::from_directory_path(&target)
-            .map_err(|_| mdx::ZdbError::invalid_path(format!("{}", &target.display())))?;
+            .map_err(|()| mdx::ZdbError::invalid_path(format!("{}", &target.display())))?;
         let target_path = mdx::utils::io_utils::fix_windows_path_buf(get_decoded_path(&dir_url)?);
 
-        // 扫描mdx文件
-        let pattern_mdx = Regex::new(r".*\.mdx$").unwrap();
+        // Scan an MDX file
+        let pattern_mdx = Regex::new(r".*\.mdx$").map_err(|e| {
+            mdx::ZdbError::invalid_path(format!("failed to compile mdx pattern: {e}"))
+        })?;
         scan_dir(&target_path, &pattern_mdx, false, &mut files)?;
         println!("Found {} '.mdx' files", files.len());
 
         if !mdx_mode {
-            // 扫描mdd文件
-            let pattern_mdd = Regex::new(r".*\.mdd$").unwrap();
+            // Scan an MDD file
+            let pattern_mdd = Regex::new(r".*\.mdd$").map_err(|e| {
+                mdx::ZdbError::invalid_path(format!("failed to compile mdd pattern: {e}"))
+            })?;
             let mut mdd_files = LinkedList::<PathBuf>::new();
             scan_dir(&target_path, &pattern_mdd, false, &mut mdd_files)?;
             println!("Found {} '.mdd' files", mdd_files.len());

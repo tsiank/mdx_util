@@ -231,13 +231,17 @@ fn main() {
         "trace" => LevelFilter::Trace,
         _ => LevelFilter::Info, // Default level
     };
-    fern::Dispatch::new()
-        .format(|out, message, _record| out.finish(format_args!("{}", message)))
+    if let Err(e) = fern::Dispatch::new()
+        .format(|out, message, _record| out.finish(format_args!("{message}")))
         .level(level_filter)
         .level_for("tantivy", LevelFilter::Warn)
         .chain(std::io::stdout())
         .apply()
-        .unwrap();
+    {
+        eprintln!("Failed to initialize logger: {e}");
+        std::process::exit(1);
+    }
+
     if let Err(e) = run(&args) {
         error!("{}", error_printer::format_error(&e));
         std::process::exit(1);

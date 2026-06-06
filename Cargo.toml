@@ -72,3 +72,20 @@ panic = "abort"
 [profile.dev]
 opt-level = 0
 debug = true
+
+[lints.rust]
+dead_code = "allow"
+
+[lints.clippy]
+# Enable the pedantic group for suspect code
+#pedantic = "warn"
+
+# Explicitly deny or warn on panic-inducing patterns
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "warn"
+indexing_slicing = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+fallible_impl_from = "warn"

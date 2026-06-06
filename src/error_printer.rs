@@ -7,7 +7,7 @@ pub fn format_error(error: &mdx::ZdbError) -> String {
         output.push_str(&format!("{}:\n", "BACKTRACE"));
 
         // Convert backtrace to string and split into lines
-        let backtrace_str = format!("{}", backtrace);
+        let backtrace_str = format!("{backtrace}");
         for line in backtrace_str.lines() {
             let line = line.trim();
             if line.is_empty() {
@@ -17,7 +17,7 @@ pub fn format_error(error: &mdx::ZdbError) -> String {
             if line.starts_with("at ") {
                 if let Some((_, file_info)) = line.split_once("at ") {
                     let file_info = file_info.trim().green();
-                    output.push_str(&format!("        at {}\n", file_info));
+                    output.push_str(&format!("        at {file_info}\n"));
                 } else {
                     output.push_str(&format!("        {}\n", line.white()));
                 }

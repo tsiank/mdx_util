@@ -22,7 +22,7 @@ pub fn search_mdx_fulltext(
 
     // Create URL from file path and open with MdxReader
     let mdx_url = url::Url::from_file_path(file_path)
-        .map_err(|_| mdx::ZdbError::invalid_path(format!("{}", file_path.display())))?;
+        .map_err(|()| mdx::ZdbError::invalid_path(format!("{}", file_path.display())))?;
 
     let mut mdx_reader = MdxReader::from_url(&mdx_url, "")?;
 
@@ -46,12 +46,12 @@ pub fn search_mdx_fulltext(
     let mut initial_results = mdx_reader.fts_search(query, 100)?;
 
     if !quiet {
-        println!("\n=== Full-Text Search Results for '{}' ===\n", query);
+        println!("\n=== Full-Text Search Results for '{query}' ===\n");
     }
 
     if initial_results.is_empty() {
         if !quiet {
-            println!("No results found for query: '{}'", query);
+            println!("No results found for query: '{query}'");
         }
         return Ok(());
     }
@@ -85,12 +85,12 @@ pub fn search_mdx_fulltext(
 
     // Iterate over our newly ordered and truncated search_results
     for (index, (score, entry_no, key)) in search_results.iter().enumerate() {
-        if !quiet {
-            println!("Result #{} (Score: {:.3})", index + 1, score);
-            println!("Entry No: {}", entry_no);
-            println!("Key: {}", key);
+        if quiet {
+            println!("\x1b[32m{key}\x1b[0m"); // Green
         } else {
-            println!("\x1b[32m{}\x1b[0m", key); // Green
+            println!("Result #{} (Score: {:.3})", index + 1, score);
+            println!("Entry No: {entry_no}");
+            println!("Key: {key}");
         }
 
         // Get the original HTML content from the MDX file
@@ -105,10 +105,10 @@ pub fn search_mdx_fulltext(
                         html_content
                     };
 
-                    if !quiet {
-                        println!("Content Preview:\n{}", utils::take_chars(&display_text, 1048576));
-                    } else {
+                    if quiet {
                         println!("{}", utils::take_chars(&display_text, 1048576));
+                    } else {
+                        println!("Content Preview:\n{}", utils::take_chars(&display_text, 1048576));
                     }
                 }
                 Err(_) => {
@@ -117,10 +117,8 @@ pub fn search_mdx_fulltext(
                     }
                 }
             }
-        } else {
-            if !quiet {
-                println!("Content: [Error retrieving entry]");
-            }
+        } else if !quiet {
+            println!("Content: [Error retrieving entry]");
         }
 
         println!("{}", "—".repeat(80));
@@ -135,7 +133,7 @@ pub fn search_mdx_fulltext(
 
 // Run function for create-index command
 pub fn run_create_index(mdx_file_path: &str) -> mdx::Result<()> {
-    use log::*;
+    use log::{error, info};
     use std::path::PathBuf;
 
     let target = mdx::utils::io_utils::fix_windows_path_buf(PathBuf::from(

@@ -8,10 +8,13 @@ use crate::report::print_progress;
 
 pub fn generate_config_file(file_path: &str) -> Result<()> {
     let config_path = shellexpand::tilde(file_path).to_string();
-    let mut config = BuilderConfig::default();
-    config.input_path = "/path/to/input.txt".to_string();
-    config.output_file = "/path/to/output.mdx".to_string();
-    config.build_mdd = false;
+
+    let config = BuilderConfig {
+        input_path: "/path/to/input.txt".to_string(),
+        output_file: "/path/to/output.mdx".to_string(),
+        build_mdd: false,
+        ..Default::default()
+    };
 
     let json = serde_json::to_string_pretty(&config)
         .map_err(|e| ZdbError::general_error(e.to_string()))?;
@@ -25,7 +28,7 @@ pub fn run_convert_db(config_file_path: &str, generate_config_only: bool) -> Res
         return Ok(());
     }
 
-    info!("Converting file: {}", config_file_path);
+    info!("Converting file: {config_file_path}");
 
     let mdx_path = shellexpand::tilde(config_file_path).to_string();
 

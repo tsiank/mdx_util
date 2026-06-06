@@ -4,7 +4,7 @@ use lol_html::html_content::ContentType;
 use lol_html::{EndTagHandler, HtmlRewriter, Settings, comments, doc_comments, element, text};
 
 pub fn take_chars(s: &str, n: usize) -> &str {
-    let byte_end = s.char_indices().nth(n).map(|(idx, _)| idx).unwrap_or_else(|| s.len());
+    let byte_end = s.char_indices().nth(n).map_or_else(|| s.len(), |(idx, _)| idx);
     &s[..byte_end]
 }
 
@@ -41,8 +41,8 @@ const BG_LUMINANCE: f64 = 0.031;
 const MIN_CONTRAST_RATIO: f64 = 4.5;
 
 /// Helper: push an end-tag handler onto the element.
-/// Uses the lol_html >= 1.0 API: `el.end_tag_handlers()`.
-/// Coerces the closure into `EndTagHandler<'static>` (Box<dyn FnOnce(...)>).
+/// Uses the `lol_html` >= 1.0 API: `el.end_tag_handlers()`.
+/// Coerces the closure into `EndTagHandler<'static>` (Box<dyn `FnOnce`(...)>).
 /// If the element can't have an end tag (void element), this is a no-op.
 macro_rules! push_end_tag_handler {
     ($el:expr, $handler:expr) => {
@@ -59,7 +59,7 @@ macro_rules! push_end_tag_handler {
 fn relative_luminance(r: u8, g: u8, b: u8) -> f64 {
     // Convert sRGB to linear
     fn linearize(c: u8) -> f64 {
-        let s = c as f64 / 255.0;
+        let s = f64::from(c) / 255.0;
         if s <= 0.04045 { s / 12.92 } else { ((s + 0.055) / 1.055).powf(2.4) }
     }
     0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)
@@ -86,10 +86,10 @@ fn ensure_contrast(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
     let mut lo: f64 = 0.0;
     let mut hi: f64 = 1.0;
     for _ in 0..20 {
-        let mid = (lo + hi) / 2.0;
-        let nr = r as f64 + (255.0 - r as f64) * mid;
-        let ng = g as f64 + (255.0 - g as f64) * mid;
-        let nb = b as f64 + (255.0 - b as f64) * mid;
+        let mid = f64::midpoint(lo, hi);
+        let nr = f64::from(r) + (255.0 - f64::from(r)) * mid;
+        let ng = f64::from(g) + (255.0 - f64::from(g)) * mid;
+        let nb = f64::from(b) + (255.0 - f64::from(b)) * mid;
         let l = relative_luminance(nr as u8, ng as u8, nb as u8);
         if contrast_ratio(l, BG_LUMINANCE) >= MIN_CONTRAST_RATIO {
             hi = mid;
@@ -98,9 +98,9 @@ fn ensure_contrast(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
         }
     }
     let factor = hi;
-    let nr = (r as f64 + (255.0 - r as f64) * factor).min(255.0) as u8;
-    let ng = (g as f64 + (255.0 - g as f64) * factor).min(255.0) as u8;
-    let nb = (b as f64 + (255.0 - b as f64) * factor).min(255.0) as u8;
+    let nr = (f64::from(r) + (255.0 - f64::from(r)) * factor).min(255.0) as u8;
+    let ng = (f64::from(g) + (255.0 - f64::from(g)) * factor).min(255.0) as u8;
+    let nb = (f64::from(b) + (255.0 - f64::from(b)) * factor).min(255.0) as u8;
     (nr, ng, nb)
 }
 
@@ -109,9 +109,9 @@ fn ensure_contrast(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
 ///   - 6-digit hex: "CA0000", "#CA0000"
 ///   - 3-digit hex: "#F00"
 ///   - CSS named colors (common subset)
-/// Returns 24-bit truecolor ANSI for kitty/modern terminals.
-/// Colors are checked for contrast against dark terminal background and
-/// lightened if needed (WCAG AA 4.5:1 ratio).
+///     Returns 24-bit truecolor ANSI for kitty/modern terminals.
+///     Colors are checked for contrast against dark terminal background and
+///     lightened if needed (WCAG AA 4.5:1 ratio).
 fn color_to_ansi(color: &str) -> Option<String> {
     let color = color.trim().trim_matches('"').trim_matches('\'');
     if color.is_empty() {
@@ -121,7 +121,7 @@ fn color_to_ansi(color: &str) -> Option<String> {
     // Parse to (r, g, b) first, then contrast-check, then emit ANSI
     let (r, g, b) = parse_color_to_rgb(color)?;
     let (r, g, b) = ensure_contrast(r, g, b);
-    Some(format!("\x1b[38;2;{};{};{}m", r, g, b))
+    Some(format!("\x1b[38;2;{r};{g};{b}m"))
 }
 
 /// Parse a CSS color name or hex value to (r, g, b).
@@ -234,8 +234,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
     // 1. Pre-sanitize: Remove literal terminal escapes to prevent raw injection
     // \x1b is standard ESC, \u{9B} is 8-bit CSI
     let safe_html = html
-        .replace('\x1b', "")
-        .replace('\u{9B}', "")
+        .replace(['\x1b', '\u{9B}'], "")
         .replace("</img>", "")
         .replace("</font>", "")
         .replace("</i>", "")
@@ -281,9 +280,9 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("sense-num, .sensenum", {
             move |el| {
                 // Added \n here to force a linefeed before the number
-                el.before(&format!("\n{}{}", BOLD_ON, WHITE), ContentType::Html);
+                el.before(&format!("\n{BOLD_ON}{WHITE}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.before(&format!("{COLOR_RESET}{BOLD_OFF}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -293,9 +292,9 @@ pub fn render_html_to_terminal(html: &str) -> String {
         }),
         element!("pron", {
             move |el| {
-                el.before(&format!("{}{}", BOLD_ON, WHITE), ContentType::Html);
+                el.before(&format!("{BOLD_ON}{WHITE}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.before(&format!("{COLOR_RESET}{BOLD_OFF}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -328,10 +327,10 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("rq", {
             move |el| {
                 // Inject 4 spaces, then turn on Light Blue and Italics
-                el.before(&format!("\n    {}{}", LIGHT_BLUE, ITALIC_ON), ContentType::Html);
+                el.before(&format!("\n    {LIGHT_BLUE}{ITALIC_ON}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     // Turn off Italics and reset color
-                    end.before(&format!("{}{}", ITALIC_OFF, COLOR_RESET), ContentType::Html);
+                    end.before(&format!("{ITALIC_OFF}{COLOR_RESET}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -342,9 +341,9 @@ pub fn render_html_to_terminal(html: &str) -> String {
         // === Oxford Collocations: <vtc> Category Header (Newline + Bold Orange) ===
         element!("vtc", {
             move |el| {
-                el.before(&format!("\n{}{}", BOLD_ON, ORANGE), ContentType::Html);
+                el.before(&format!("\n{BOLD_ON}{ORANGE}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.before(&format!("{COLOR_RESET}{BOLD_OFF}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -369,7 +368,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("ue", {
             move |el| {
                 // Add a space before to prevent "boatnoun"
-                el.before(&format!(" {}", ITALIC_ON), ContentType::Html);
+                el.before(&format!(" {ITALIC_ON}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     end.before(ITALIC_OFF, ContentType::Html);
                     end.remove();
@@ -383,7 +382,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("uey", {
             move |el| {
                 // Force onto a new line
-                el.before(&format!("\n{}", ITALIC_ON), ContentType::Html);
+                el.before(&format!("\n{ITALIC_ON}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     end.before(ITALIC_OFF, ContentType::Html);
                     end.remove();
@@ -412,9 +411,9 @@ pub fn render_html_to_terminal(html: &str) -> String {
         // === <block-title>: Bold Blue ===
         element!("block-title", {
             move |el| {
-                el.before(&format!("{}{}", BOLD_ON, BLUE), ContentType::Html);
+                el.before(&format!("{BOLD_ON}{BLUE}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.before(&format!("{COLOR_RESET}{BOLD_OFF}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -464,7 +463,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!(".etymology", {
             move |el| {
                 // Inject comma, space, and Yellow ANSI code
-                el.before(&format!(", {}", YELLOW), ContentType::Html);
+                el.before(&format!(", {YELLOW}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     end.before(COLOR_RESET, ContentType::Html);
                     end.remove();
@@ -643,9 +642,9 @@ pub fn render_html_to_terminal(html: &str) -> String {
         // === Dictionary Sense: <sense> ===
         element!("sense", {
             move |el| {
-                el.before(&format!("{}{}", BOLD_ON, YELLOW), ContentType::Html);
+                el.before(&format!("{BOLD_ON}{YELLOW}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{}{}", COLOR_RESET, BOLD_OFF), ContentType::Html);
+                    end.before(&format!("{COLOR_RESET}{BOLD_OFF}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -723,17 +722,17 @@ pub fn render_html_to_terminal(html: &str) -> String {
             move |el| {
                 let mut did_color = false;
 
-                if let Some(color_val) = el.get_attribute("color") {
-                    if let Some(ansi) = color_to_ansi(&color_val) {
-                        el.before(&ansi, ContentType::Html);
-                        did_color = true;
-                    }
+                if let Some(color_val) = el.get_attribute("color")
+                    && let Some(ansi) = color_to_ansi(&color_val)
+                {
+                    el.before(&ansi, ContentType::Html);
+                    did_color = true;
                 }
 
                 if let Some(size_val) = el.get_attribute("size") {
                     let size_str = size_val.trim();
-                    let is_large = size_str.starts_with('+')
-                        || size_str.parse::<i32>().map_or(false, |n| n > 3);
+                    let is_large =
+                        size_str.starts_with('+') || size_str.parse::<i32>().is_ok_and(|n| n > 3);
                     if is_large {
                         el.before(BOLD_ON, ContentType::Html);
                         let needs_color_reset = did_color;
@@ -768,13 +767,12 @@ pub fn render_html_to_terminal(html: &str) -> String {
             move |el| {
                 let mut did_color = false;
 
-                if let Some(style) = el.get_attribute("style") {
-                    if let Some(color_val) = extract_style_property(&style, "color") {
-                        if let Some(ansi) = color_to_ansi(color_val) {
-                            el.before(&ansi, ContentType::Html);
-                            did_color = true;
-                        }
-                    }
+                if let Some(style) = el.get_attribute("style")
+                    && let Some(color_val) = extract_style_property(&style, "color")
+                    && let Some(ansi) = color_to_ansi(color_val)
+                {
+                    el.before(&ansi, ContentType::Html);
+                    did_color = true;
                 }
 
                 if did_color {
@@ -803,7 +801,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             let indent = &indent_level;
             move |el| {
                 *indent.borrow_mut() = 2;
-                el.before(&format!("\n{}", SE2_INDENT), ContentType::Text);
+                el.before(&format!("\n{SE2_INDENT}"), ContentType::Text);
                 el.remove_and_keep_content();
                 Ok(())
             }
@@ -812,7 +810,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             let indent = &indent_level;
             move |el| {
                 *indent.borrow_mut() = 4;
-                el.before(&format!("\n{}", SE4_INDENT), ContentType::Text);
+                el.before(&format!("\n{SE4_INDENT}"), ContentType::Text);
                 el.remove_and_keep_content();
                 Ok(())
             }
@@ -821,7 +819,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             let indent = &indent_level;
             move |el| {
                 *indent.borrow_mut() = 6;
-                el.before(&format!("\n{}", SE6_INDENT), ContentType::Text);
+                el.before(&format!("\n{SE6_INDENT}"), ContentType::Text);
                 el.remove_and_keep_content();
                 Ok(())
             }
@@ -830,7 +828,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             let indent = &indent_level;
             move |el| {
                 *indent.borrow_mut() = 8;
-                el.before(&format!("\n{}", SE8_INDENT), ContentType::Text);
+                el.before(&format!("\n{SE8_INDENT}"), ContentType::Text);
                 el.remove_and_keep_content();
                 Ok(())
             }
@@ -852,7 +850,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
         }),
         element!("spg", {
             move |el| {
-                el.before(&format!("\n{}", DIM), ContentType::Html);
+                el.before(&format!("\n{DIM}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     end.before(DIM_OFF, ContentType::Html);
                     end.remove();
@@ -874,9 +872,9 @@ pub fn render_html_to_terminal(html: &str) -> String {
         // <hw> headword: bold + underline
         element!("hw", {
             move |el| {
-                el.before(&format!("{}{}", BOLD_ON, UNDERLINE_ON), ContentType::Html);
+                el.before(&format!("{BOLD_ON}{UNDERLINE_ON}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{}{}", UNDERLINE_OFF, BOLD_OFF), ContentType::Html);
+                    end.before(&format!("{UNDERLINE_OFF}{BOLD_OFF}"), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -902,7 +900,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             move |el| {
                 el.before(YELLOW, ContentType::Html);
                 push_end_tag_handler!(el, |end| {
-                    end.before(&format!("{} ", COLOR_RESET), ContentType::Html);
+                    end.before(&format!("{COLOR_RESET} "), ContentType::Html);
                     end.remove();
                     Ok(())
                 });
@@ -998,34 +996,28 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("a", {
             move |el| {
                 let href = el.get_attribute("href").unwrap_or_default();
-                if href.starts_with("entry://") {
-                    let target = href["entry://".len()..].to_string();
-                    el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
+                if let Some(stripped) = href.strip_prefix("entry://") {
+                    let target = stripped.to_string();
+                    el.before(&format!("{CYAN}{UNDERLINE_ON}"), ContentType::Html);
                     // Only show [→target] for actual dictionary entry links,
                     // not for meta/guide links (which contain '#' fragments)
                     let show_target = !target.contains('#');
                     push_end_tag_handler!(el, move |end| {
                         if show_target {
                             end.before(
-                                &format!(
-                                    "{}{} [→{}]{}{}",
-                                    UNDERLINE_OFF, DIM, target, DIM_OFF, COLOR_RESET
-                                ),
+                                &format!("{UNDERLINE_OFF}{DIM} [→{target}]{DIM_OFF}{COLOR_RESET}"),
                                 ContentType::Html,
                             );
                         } else {
-                            end.before(
-                                &format!("{}{}", UNDERLINE_OFF, COLOR_RESET),
-                                ContentType::Html,
-                            );
+                            end.before(&format!("{UNDERLINE_OFF}{COLOR_RESET}"), ContentType::Html);
                         }
                         end.remove();
                         Ok(())
                     });
                 } else if !href.is_empty() {
-                    el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
+                    el.before(&format!("{CYAN}{UNDERLINE_ON}"), ContentType::Html);
                     push_end_tag_handler!(el, |end| {
-                        end.before(&format!("{}{}", UNDERLINE_OFF, COLOR_RESET), ContentType::Html);
+                        end.before(&format!("{UNDERLINE_OFF}{COLOR_RESET}"), ContentType::Html);
                         end.remove();
                         Ok(())
                     });
@@ -1082,16 +1074,15 @@ pub fn render_html_to_terminal(html: &str) -> String {
             let indent = &indent_level;
             move |el| {
                 // Skip adding block newlines for Longman inline-wrapper divs
-                if let Some(class) = el.get_attribute("class") {
-                    if class.contains("lemma")
+                if let Some(class) = el.get_attribute("class")
+                    && (class.contains("lemma")
                         || class.contains("etymology")
                         || class.contains("verbtable")
                         || class.contains("at-link")
-                        || class.contains("content")
-                    {
-                        el.remove_and_keep_content();
-                        return Ok(());
-                    }
+                        || class.contains("content"))
+                {
+                    el.remove_and_keep_content();
+                    return Ok(());
                 }
 
                 let indent2 = indent.clone();
@@ -1148,7 +1139,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
                 let prefix = if let Some(last) = b_counters.last_mut() {
                     let n = *last;
                     *last += 1;
-                    format!("\n{} ", n)
+                    format!("\n{n} ")
                 } else {
                     "\n• ".to_string()
                 };
@@ -1162,7 +1153,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("pos, .pos", {
             move |el| {
                 // Prepending a space fixes the missing gap after the pronunciation
-                el.before(&format!(" {}", ITALIC_ON), ContentType::Html);
+                el.before(&format!(" {ITALIC_ON}"), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     end.before(ITALIC_OFF, ContentType::Html);
                     end.remove();
@@ -1256,7 +1247,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             move |el| {
                 // Indent 4 spaces per depth level (0 spaces for main senses, 4 for sub-senses)
                 let indent_str = "    ".repeat(*depth.borrow());
-                el.before(&format!("\n{}", indent_str), ContentType::Text);
+                el.before(&format!("\n{indent_str}"), ContentType::Text);
 
                 // Increase depth for any tags nested inside this one
                 *depth.borrow_mut() += 1;
@@ -1315,10 +1306,10 @@ pub fn render_html_to_terminal(html: &str) -> String {
     });
 
     if let Err(e) = rewriter.write(safe_html.as_bytes()) {
-        eprintln!("HTML render error: {}", e);
+        eprintln!("HTML render error: {e}");
     }
     if let Err(e) = rewriter.end() {
-        eprintln!("HTML render end error: {}", e);
+        eprintln!("HTML render end error: {e}");
     }
 
     let raw = result.into_inner();
@@ -1334,25 +1325,31 @@ pub fn render_html_to_terminal(html: &str) -> String {
     let mut newline_count = 0u32;
     let mut i = 0;
     while i < len {
-        let ch = chars[i];
+        let Some(&ch) = chars.get(i) else {
+            break;
+        };
         match ch {
             '&' => {
                 let mut j = i + 1;
                 let mut found_semi = false;
                 // Lookahead up to 15 chars to find the closing ';'
-                while j < len && j - i < 15 {
-                    if chars[j] == ';' {
+                while j - i < 15 {
+                    let Some(&cj) = chars.get(j) else {
+                        break;
+                    };
+                    if cj == ';' {
                         found_semi = true;
                         break;
                     }
-                    if chars[j].is_whitespace() || chars[j] == '&' {
+                    if cj.is_whitespace() || cj == '&' {
                         break; // Invalid entity structure
                     }
                     j += 1;
                 }
 
                 if found_semi {
-                    let entity: String = chars[i..=j].iter().collect();
+                    let entity: String =
+                        chars.get(i..=j).map_or_else(String::new, |s| s.iter().collect());
                     let decoded = html_escape::decode_html_entities(&entity);
 
                     // SECURE FILTER: block C0 controls (< 0x20 except tab/nl/cr), DEL (0x7F),
@@ -1361,34 +1358,32 @@ pub fn render_html_to_terminal(html: &str) -> String {
                         let cp = c as u32;
                         (cp < 0x20 && cp != 0x09 && cp != 0x0A && cp != 0x0D)
                             || cp == 0x7F
-                            || (cp >= 0x80 && cp <= 0x9F)
+                            || (0x80..=0x9F).contains(&cp)
                     });
 
                     if has_control {
                         // Malicious entity detected (e.g., &#x1B;): delete it by skipping it
                         i = j + 1;
                         continue;
-                    } else {
-                        // Safe entity: push characters to output
-                        for mut dc in decoded.chars() {
-                            // Translate non-breaking spaces to standard spaces
-                            if dc == '\u{A0}' {
-                                dc = ' ';
-                            }
-                            cleaned.push(dc);
-                            if dc != '\n' && dc != '\r' {
-                                newline_count = 0;
-                            }
-                        }
-                        i = j + 1;
-                        continue;
                     }
-                } else {
-                    // False alarm, just push the '&'
-                    cleaned.push(ch);
-                    newline_count = 0;
-                    i += 1;
+                    // Safe entity: push characters to output
+                    for mut dc in decoded.chars() {
+                        // Translate non-breaking spaces to standard spaces
+                        if dc == '\u{A0}' {
+                            dc = ' ';
+                        }
+                        cleaned.push(dc);
+                        if dc != '\n' && dc != '\r' {
+                            newline_count = 0;
+                        }
+                    }
+                    i = j + 1;
+                    continue;
                 }
+                // False alarm, just push the '&'
+                cleaned.push(ch);
+                newline_count = 0;
+                i += 1;
             }
             '\r' => {
                 i += 1;
@@ -1396,7 +1391,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
             '\n' => {
                 // Check if this \n is followed by \t (OED source inter-tag whitespace)
                 let mut j = i + 1;
-                while j < len && chars[j] == '\t' {
+                while matches!(chars.get(j), Some('\t')) {
                     j += 1;
                 }
                 if j > i + 1 {
@@ -1413,13 +1408,13 @@ pub fn render_html_to_terminal(html: &str) -> String {
             ' ' | '\t' => {
                 // Look ahead to see if these spaces are just trailing before a newline
                 let mut j = i;
-                while j < len && (chars[j] == ' ' || chars[j] == '\t') {
+                while matches!(chars.get(j), Some(' ' | '\t')) {
                     j += 1;
                 }
 
                 // If the spaces lead straight into a newline (or end of file),
                 // skip them so they don't reset our newline_count condenser!
-                if j == len || chars[j] == '\n' || chars[j] == '\r' {
+                if matches!(chars.get(j), None | Some('\n' | '\r')) {
                     i = j;
                     continue;
                 }

@@ -24,8 +24,7 @@ pub fn search_zdb(
     let mut zdb = ZdbReader::<BufReader<File>>::from_reader(BufReader::new(file), "", "")?;
 
     info!(
-        "Searching key: '{}' with start_with_match: {}, partial_match: {}",
-        key, start_with_match, partial_match
+        "Searching key: '{key}' with start_with_match: {start_with_match}, partial_match: {partial_match}"
     );
 
     match zdb.find_first_match(key, start_with_match, partial_match, true) {
@@ -56,11 +55,11 @@ pub fn search_zdb(
             Ok(())
         }
         Ok(None) => {
-            info!("No match found for key: {}", key);
+            info!("No match found for key: {key}");
             Ok(())
         }
         Err(e) => {
-            error!("Error with search: {:}", e);
+            error!("Error with search: {e:}");
             Err(e)
         }
     }
@@ -77,13 +76,12 @@ pub fn search_mdx_db(
     info!("Search {} in mdx file: {}", key, file_path.display());
 
     let mdx_url = url::Url::from_file_path(file_path)
-        .map_err(|_| mdx::ZdbError::invalid_path(format!("{}", file_path.display())))?;
+        .map_err(|()| mdx::ZdbError::invalid_path(format!("{}", file_path.display())))?;
 
     let mut mdx_reader = MdxReader::from_url(&mdx_url, "")?;
 
     info!(
-        "Searching key: '{}' with start_with_match: {}, partial_match: {}",
-        key, start_with_match, partial_match
+        "Searching key: '{key}' with start_with_match: {start_with_match}, partial_match: {partial_match}"
     );
 
     match mdx_reader.find_index(key, start_with_match, partial_match, true) {
@@ -109,11 +107,11 @@ pub fn search_mdx_db(
             Ok(())
         }
         Ok(None) => {
-            info!("No match found for key: {}", key);
+            info!("No match found for key: {key}");
             Ok(())
         }
         Err(e) => {
-            error!("Error with search: {:}", e);
+            error!("Error with search: {e:}");
             Err(e)
         }
     }
