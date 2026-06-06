@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use log::{error, info};
 
+use mdx::Result;
 use mdx::readers::MdxReader;
 use mdx::readers::ZdbReader;
-use mdx::Result;
 
 use crate::utils;
 

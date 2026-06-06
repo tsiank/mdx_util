@@ -1,14 +1,10 @@
 use std::cell::RefCell;
 
 use lol_html::html_content::ContentType;
-use lol_html::{comments, doc_comments, element, text, EndTagHandler, HtmlRewriter, Settings};
+use lol_html::{EndTagHandler, HtmlRewriter, Settings, comments, doc_comments, element, text};
 
 pub fn take_chars(s: &str, n: usize) -> &str {
-    let byte_end = s
-        .char_indices()
-        .nth(n)
-        .map(|(idx, _)| idx)
-        .unwrap_or_else(|| s.len());
+    let byte_end = s.char_indices().nth(n).map(|(idx, _)| idx).unwrap_or_else(|| s.len());
     &s[..byte_end]
 }
 
@@ -64,11 +60,7 @@ fn relative_luminance(r: u8, g: u8, b: u8) -> f64 {
     // Convert sRGB to linear
     fn linearize(c: u8) -> f64 {
         let s = c as f64 / 255.0;
-        if s <= 0.04045 {
-            s / 12.92
-        } else {
-            ((s + 0.055) / 1.055).powf(2.4)
-        }
+        if s <= 0.04045 { s / 12.92 } else { ((s + 0.055) / 1.055).powf(2.4) }
     }
     0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)
 }
@@ -336,10 +328,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
         element!("rq", {
             move |el| {
                 // Inject 4 spaces, then turn on Light Blue and Italics
-                el.before(
-                    &format!("\n    {}{}", LIGHT_BLUE, ITALIC_ON),
-                    ContentType::Html,
-                );
+                el.before(&format!("\n    {}{}", LIGHT_BLUE, ITALIC_ON), ContentType::Html);
                 push_end_tag_handler!(el, |end| {
                     // Turn off Italics and reset color
                     end.before(&format!("{}{}", ITALIC_OFF, COLOR_RESET), ContentType::Html);
@@ -447,17 +436,14 @@ pub fn render_html_to_terminal(html: &str) -> String {
             }
         }),
         // === Longman: Remove duplicate/noisy elements entirely ===
-        element!(
-            ".hyphenation.frequent, .popetymology, .popverbs, .popcolloheader",
-            {
-                move |el| {
-                    // This kills the duplicate headword, the ALL CAPS duplicates,
-                    // and completely silences the multiple <table> tags.
-                    el.remove();
-                    Ok(())
-                }
+        element!(".hyphenation.frequent, .popetymology, .popverbs, .popcolloheader", {
+            move |el| {
+                // This kills the duplicate headword, the ALL CAPS duplicates,
+                // and completely silences the multiple <table> tags.
+                el.remove();
+                Ok(())
             }
-        ),
+        }),
         // === Longman: Popup buttons (Etymology, Verb Table, Collocations) ===
         element!(".popup-button", {
             move |el| {
@@ -607,15 +593,12 @@ pub fn render_html_to_terminal(html: &str) -> String {
             }
         }),
         // I've also added these to clean up the rest of the raw tags in your output:
-        element!(
-            "prongrp, pronunit, container, etym, subentryblk, inflgrp, influnit, infl",
-            {
-                move |el| {
-                    el.remove_and_keep_content();
-                    Ok(())
-                }
+        element!("prongrp, pronunit, container, etym, subentryblk, inflgrp, influnit, infl", {
+            move |el| {
+                el.remove_and_keep_content();
+                Ok(())
             }
-        ),
+        }),
         // <xrhw> cross-reference headword: green
         element!("xrhw", {
             move |el| {
@@ -1042,10 +1025,7 @@ pub fn render_html_to_terminal(html: &str) -> String {
                 } else if !href.is_empty() {
                     el.before(&format!("{}{}", CYAN, UNDERLINE_ON), ContentType::Html);
                     push_end_tag_handler!(el, |end| {
-                        end.before(
-                            &format!("{}{}", UNDERLINE_OFF, COLOR_RESET),
-                            ContentType::Html,
-                        );
+                        end.before(&format!("{}{}", UNDERLINE_OFF, COLOR_RESET), ContentType::Html);
                         end.remove();
                         Ok(())
                     });

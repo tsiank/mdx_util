@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use log::{error, LevelFilter};
+use log::{LevelFilter, error};
 
 use mdx::Result;
 
@@ -67,11 +67,7 @@ enum Commands {
         mode: String,
 
         /// Number of entries to test (default: all entries)
-        #[arg(
-            long,
-            value_name = "COUNT",
-            help = "Limit the number of entries to test"
-        )]
+        #[arg(long, value_name = "COUNT", help = "Limit the number of entries to test")]
         count: Option<usize>,
 
         /// Randomly sample entries instead of sequential reading
@@ -92,11 +88,7 @@ enum Commands {
         file: String,
 
         /// Generate an example config file only
-        #[arg(
-            long,
-            default_value = "false",
-            help = "Generate an example config file only"
-        )]
+        #[arg(long, default_value = "false", help = "Generate an example config file only")]
         generate_config_only: bool,
     },
 
@@ -139,12 +131,7 @@ enum Commands {
         keyword: String,
 
         /// Mode for searching (zdb or mdx)
-        #[arg(
-            long,
-            value_name = "MODE",
-            default_value = "zdb",
-            help = "Search mode: zdb or mdx"
-        )]
+        #[arg(long, value_name = "MODE", default_value = "zdb", help = "Search mode: zdb or mdx")]
         mode: String,
 
         /// Show HTML->text preview of content
@@ -215,10 +202,7 @@ enum Commands {
         quiet: bool,
 
         /// Render HTML tags to terminal formatting
-        #[arg(
-            long,
-            help = "Render HTML formatting (bold, italic, new lines, colors) to terminal"
-        )]
+        #[arg(long, help = "Render HTML formatting (bold, italic, new lines, colors) to terminal")]
         render: bool,
     },
 }
@@ -236,9 +220,7 @@ fn main() {
     } else if is_quiet {
         "warn".to_string()
     } else {
-        std::env::var("RUST_LOG")
-            .unwrap_or("info".to_string())
-            .to_lowercase()
+        std::env::var("RUST_LOG").unwrap_or("info".to_string()).to_lowercase()
     };
 
     let level_filter = match log_level.as_str() {
@@ -264,50 +246,24 @@ fn main() {
 
 fn run(args: &Args) -> Result<()> {
     match &args.command {
-        Commands::Test {
-            path,
-            mode,
-            count,
-            random,
-        } => {
+        Commands::Test { path, mode, count, random } => {
             let mdx_mode = mode == "mdx";
             run_test_db(path, mdx_mode, *count, *random)
         }
-        Commands::ConvertDb {
-            file,
-            generate_config_only,
-        } => convert_db::run_convert_db(file, *generate_config_only),
-        Commands::BuildMdd {
-            directory,
-            file,
-            password,
-        } => build_mdd::run_build_mdd(directory, password, file),
-        Commands::List {
-            file,
-            keyword,
-            mode,
-            preview,
-            start_with_match,
-            partial_match,
-        } => {
+        Commands::ConvertDb { file, generate_config_only } => {
+            convert_db::run_convert_db(file, *generate_config_only)
+        }
+        Commands::BuildMdd { directory, file, password } => {
+            build_mdd::run_build_mdd(directory, password, file)
+        }
+        Commands::List { file, keyword, mode, preview, start_with_match, partial_match } => {
             let mdx_mode = mode == "mdx";
-            run_search(
-                file,
-                keyword,
-                mdx_mode,
-                *preview,
-                *start_with_match,
-                *partial_match,
-            )
+            run_search(file, keyword, mdx_mode, *preview, *start_with_match, *partial_match)
         }
         Commands::CreateIndex { file } => run_create_index(file),
         Commands::Keygen { password, id } => keygen::run_keygen(password, id),
-        Commands::FtsSearch {
-            mdx_file,
-            keyword,
-            results,
-            quiet,
-            render,
-        } => fts_index::run_fulltext_search(mdx_file, keyword, *results, *quiet, *render),
+        Commands::FtsSearch { mdx_file, keyword, results, quiet, render } => {
+            fts_index::run_fulltext_search(mdx_file, keyword, *results, *quiet, *render)
+        }
     }
 }

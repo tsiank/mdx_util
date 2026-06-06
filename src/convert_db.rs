@@ -1,7 +1,7 @@
 use log::info;
 
-use mdx::builder::zdb_builder::ZDBBuilder;
 use mdx::builder::BuilderConfig;
+use mdx::builder::zdb_builder::ZDBBuilder;
 use mdx::{Result, ZdbError};
 
 use crate::report::print_progress;

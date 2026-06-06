@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use log::info;
 
-use mdx::builder::{BuilderConfig, SourceType, ZDBBuilder};
 use mdx::Result;
+use mdx::builder::{BuilderConfig, SourceType, ZDBBuilder};
 
 use crate::report::print_progress;
 

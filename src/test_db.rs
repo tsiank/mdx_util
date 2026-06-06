@@ -9,6 +9,7 @@ use rand::seq::SliceRandom;
 use regex::Regex;
 use url::Url;
 
+use mdx::Result;
 use mdx::readers::MdxReader;
 use mdx::readers::ZdbReader;
 use mdx::storage::key_block::KeyIndex;
@@ -16,7 +17,6 @@ use mdx::storage::meta_unit::ContentType;
 use mdx::utils::io_utils::scan_dir;
 use mdx::utils::progress_report::ProgressState;
 use mdx::utils::url_utils::get_decoded_path;
-use mdx::Result;
 
 use crate::error_printer;
 use crate::report::print_progress;
@@ -72,10 +72,7 @@ pub fn test_mdx(file_path: &PathBuf, test_count: Option<usize>, random: bool) ->
     println!("Opening mdx db: {}", file_path.display());
     let mut mdx_reader = MdxReader::from_url(&mdx_url, "")?;
 
-    debug!(
-        "Raw header xml: {}",
-        mdx_reader.content_db.meta.raw_header_xml
-    );
+    debug!("Raw header xml: {}", mdx_reader.content_db.meta.raw_header_xml);
     debug!("Db info: {:?}", mdx_reader.content_db.meta.db_info);
 
     let entry_count = mdx_reader.get_entry_count();
@@ -159,10 +156,7 @@ pub fn run_test_db(
             files.append(&mut mdd_files);
         }
         if files.is_empty() {
-            println!(
-                "No .mdx or .mdd files found in directory: {}",
-                target_path.display()
-            );
+            println!("No .mdx or .mdd files found in directory: {}", target_path.display());
             return Ok(());
         }
     } else {

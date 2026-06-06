@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use log::{error, info};
 
-use mdx::readers::MdxReader;
 use mdx::Result;
+use mdx::readers::MdxReader;
 
 use crate::report::print_progress;
 use crate::utils;
@@ -17,11 +17,7 @@ pub fn search_mdx_fulltext(
     render: bool,
 ) -> Result<()> {
     if !quiet {
-        info!(
-            "Full-text search for '{}' in MDX file: {}",
-            query,
-            file_path.display()
-        );
+        info!("Full-text search for '{}' in MDX file: {}", query, file_path.display());
     }
 
     // Create URL from file path and open with MdxReader
@@ -110,10 +106,7 @@ pub fn search_mdx_fulltext(
                     };
 
                     if !quiet {
-                        println!(
-                            "Content Preview:\n{}",
-                            utils::take_chars(&display_text, 1048576)
-                        );
+                        println!("Content Preview:\n{}", utils::take_chars(&display_text, 1048576));
                     } else {
                         println!("{}", utils::take_chars(&display_text, 1048576));
                     }
@@ -152,10 +145,7 @@ pub fn run_create_index(mdx_file_path: &str) -> mdx::Result<()> {
     // Check if the target is a file
     if !target.is_file() {
         error!("Path must be an MDX file: {}", target.display());
-        return Err(mdx::ZdbError::invalid_path(format!(
-            "Not a file: {}",
-            target.display()
-        )));
+        return Err(mdx::ZdbError::invalid_path(format!("Not a file: {}", target.display())));
     }
 
     // Check if it's an MDX file
@@ -188,10 +178,7 @@ pub fn run_fulltext_search(
     ));
 
     if !target.is_file() {
-        error!(
-            "Path must be an MDX file for full-text search: {}",
-            target.display()
-        );
+        error!("Path must be an MDX file for full-text search: {}", target.display());
         return Ok(());
     }
 
