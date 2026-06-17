@@ -1096,6 +1096,26 @@ pub fn render_html_to_terminal(html: &str) -> String {
                 Ok(())
             }
         }),
+        // === Blockquote: block-level quote, rendered in light blue ===
+        element!("blockquote", {
+            let indent = &indent_level;
+            move |el| {
+                let level = *indent.borrow();
+                // Start on a new line at the current indent, then turn on light blue
+                el.before(&format!("\n{}{LIGHT_BLUE}", indent_str(level)), ContentType::Html);
+
+                let indent2 = indent.clone();
+                push_end_tag_handler!(el, move |end| {
+                    let level = *indent2.borrow();
+                    // Reset color and break to a new line at the current indent
+                    end.before(&format!("{COLOR_RESET}\n{}", indent_str(level)), ContentType::Html);
+                    end.remove();
+                    Ok(())
+                });
+                el.remove_and_keep_content();
+                Ok(())
+            }
+        }),
         // === Ordered Lists: <ol> ===
         element!("ol", {
             let counters = std::rc::Rc::clone(&list_counters);
