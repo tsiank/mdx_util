@@ -48,8 +48,13 @@ pub fn search_zdb(
                     content.len()
                 );
                 if preview {
-                    let text_content = mdx::utils::extract_text_from_html(&content)?;
-                    println!("     Preview: {}", utils::take_chars(&text_content, 1000));
+                    let text_content = mdx::utils::utils::html_to_text(&content);
+                    let text_content = if text_content.trim().is_empty() {
+                        content.as_str()
+                    } else {
+                        text_content.as_str()
+                    };
+                    println!("     Preview: {}", utils::take_chars(text_content, 1000));
                 }
             }
             Ok(())
@@ -101,7 +106,12 @@ pub fn search_mdx_db(
                 );
                 if preview {
                     let text_content = mdx::utils::utils::html_to_text(&content);
-                    println!("     Preview: {}", utils::take_chars(&text_content, 1000));
+                    let text_content = if text_content.trim().is_empty() {
+                        content.as_str()
+                    } else {
+                        text_content.as_str()
+                    };
+                    println!("     Preview: {}", utils::take_chars(text_content, 1000));
                 }
             }
             Ok(())
