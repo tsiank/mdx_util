@@ -1,5 +1,5 @@
 usage
-cargo run -- convert-db example_test/test_config.json
+mdx_util.exe convert-db example_test/test_config.json
 </>
 aa
 this is aa test.
