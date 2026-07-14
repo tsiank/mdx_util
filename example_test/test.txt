@@ -1,0 +1,12 @@
+usage
+cargo run -- convert-db example_test/test_config.json
+</>
+aa
+this is aa test.
+</>
+bb
+this is <b>bb</b> test.
+</>
+cc
+this is <i>cc</i> <font style="color:red">test</font>.
+</>

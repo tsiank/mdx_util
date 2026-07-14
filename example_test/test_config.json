@@ -1,0 +1,11 @@
+{
+  "input_path": "example_test/test.txt",
+  "output_file": "example_test/test.mdx",
+  "register_by_email": true,
+  "password": "",
+  "data_source_format": "MdictHtml",
+  "content_type": "Html",
+  "default_sorting_locale": "en-US",
+  "preferred_content_block_size": 65536,
+  "preferred_key_block_size": 16384
+}
