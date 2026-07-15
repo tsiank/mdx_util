@@ -176,7 +176,7 @@ mdx_util export /path/to/file.mdd output_resources
 mdx_util export /path/to/file.mdd output_resources --count 100
 ```
 
-文本导出格式为：词条名、原始内容、`</>` 结束标记。Compact HTML 词典会导出 compact 源文本，并额外生成 `output.txt.stylesheet.txt` 这类 stylesheet 文件。资源导出会把 MDD 里的资源 key 映射为输出目录下的相对路径；同名 MDD 资源会导出到 `<词典名>_mdd` 目录。
+文本导出格式为：词条名、原始内容、`</>` 结束标记。Compact HTML 词典会导出 compact 源文本，并额外生成 `output.txt.stylesheet.txt` 这类 stylesheet 文件。资源导出会把 MDD 里的资源 key 映射为输出目录下的相对路径；同名 MDD 会按每个 MDD 文件分别建目录，例如 `name_mdd`、`name.1_mdd`、`name.2_mdd`。
 
 ### `keygen` - 生成授权信息
 

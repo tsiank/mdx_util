@@ -140,7 +140,7 @@ mdx_util export /path/to/file.mdd output_resources
 mdx_util export /path/to/file.mdd output_resources --count 100
 ```
 
-Text export writes records in `key`, raw content, `</>` format. Compact HTML dictionaries export the compact source text and a sidecar stylesheet file named `output.txt.stylesheet.txt`. Resource export preserves resource keys as relative file paths under the output directory; associated MDD resources are exported to a directory named `<dictionary>_mdd`.
+Text export writes records in `key`, raw content, `</>` format. Compact HTML dictionaries export the compact source text and a sidecar stylesheet file named `output.txt.stylesheet.txt`. Resource export preserves resource keys as relative file paths under the output directory; associated MDD resources are exported to directories named after each MDD file, such as `name_mdd`, `name.1_mdd`, and `name.2_mdd`.
 
 #### `keygen` - Generate Authorization Keys
 Generate encryption keys and registration codes for password-protected dictionaries:

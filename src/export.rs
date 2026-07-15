@@ -108,19 +108,66 @@ fn export_associated_mdd(
     mdx_output_file: &Path,
     count: Option<usize>,
 ) -> Result<()> {
-    let mdd_path = mdx_path.with_extension("mdd");
-    if !mdd_path.exists() {
-        println!("Associated mdd not found: {}", mdd_path.display());
+    let mdd_paths = find_associated_mdd_files(mdx_path)?;
+    if mdd_paths.is_empty() {
+        println!("Associated mdd not found for: {}", mdx_path.display());
         return Ok(());
     }
 
-    let mdd_output_dir = mdd_output_dir(mdx_output_file);
-    export_zdb(&mdd_path, &mdd_output_dir, count)
+    for mdd_path in mdd_paths {
+        let mdd_output_dir = mdd_output_dir(mdx_output_file, &mdd_path);
+        export_zdb(&mdd_path, &mdd_output_dir, count)?;
+    }
+    Ok(())
 }
 
-fn mdd_output_dir(mdx_output_file: &Path) -> PathBuf {
+fn find_associated_mdd_files(mdx_path: &Path) -> Result<Vec<PathBuf>> {
+    let parent = mdx_path.parent().unwrap_or_else(|| Path::new(""));
+    let stem = mdx_path.file_stem().and_then(|value| value.to_str()).unwrap_or_default();
+    let mut matches = Vec::new();
+
+    for entry in fs::read_dir(parent)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+
+        if let Some(order) = associated_mdd_order(stem, file_name) {
+            matches.push((order, path));
+        }
+    }
+
+    matches.sort_by_key(|(order, _)| *order);
+    Ok(matches.into_iter().map(|(_, path)| path).collect())
+}
+
+fn associated_mdd_order(stem: &str, file_name: &str) -> Option<u32> {
+    let lower_name = file_name.to_ascii_lowercase();
+    let lower_stem = stem.to_ascii_lowercase();
+    let base_name = format!("{}.mdd", lower_stem);
+
+    if lower_name == base_name {
+        return Some(0);
+    }
+
+    let prefix = format!("{}.", lower_stem);
+    let suffix = ".mdd";
+    if !lower_name.starts_with(&prefix) || !lower_name.ends_with(suffix) {
+        return None;
+    }
+
+    let number = &lower_name[prefix.len()..lower_name.len() - suffix.len()];
+    number.parse::<u32>().ok().filter(|value| *value > 0)
+}
+
+fn mdd_output_dir(mdx_output_file: &Path, mdd_path: &Path) -> PathBuf {
     let parent = mdx_output_file.parent().unwrap_or_else(|| Path::new(""));
-    let stem = mdx_output_file.file_stem().and_then(|value| value.to_str()).unwrap_or("resources");
+    let stem = mdd_path.file_stem().and_then(|value| value.to_str()).unwrap_or("resources");
     parent.join(format!("{}_mdd", stem))
 }
 
