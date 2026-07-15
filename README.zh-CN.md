@@ -146,6 +146,38 @@ mdx_util build-mdd /path/to/resources output.mdd "password"
 
 适用于图片、音频、样式文件等词典资源。
 
+### `export` - 还原源文本或资源文件
+
+将 MDX/ZDB 文本词典导出回 MDict 源文本格式，或将 MDD 二进制资源解包到目录。
+
+```bash
+# 导出 ZDB/MDX 文本为源文本格式
+mdx_util export /path/to/file.mdx output.txt
+
+# 使用 mdx reader 模式导出
+mdx_util export --mode mdx /path/to/file.mdx output.txt
+
+# 导出 MDX 文本，并同时导出同名 MDD 资源
+mdx_util export --mode mdx --with-mdd /path/to/file.mdx output.txt
+
+# 批量导出目录中的 MDX 文件
+mdx_util export /path/to/dictionaries output_directory
+
+# 使用显式选项指定批量导出目录
+mdx_util export /path/to/dictionaries --output-dir output_directory
+
+# 批量导出目录中的 MDX 文件，并同时导出同名 MDD 资源
+mdx_util export /path/to/dictionaries output_directory --with-mdd
+
+# 解包 MDD 资源到目录
+mdx_util export /path/to/file.mdd output_resources
+
+# 只导出前 N 个词条或资源，适合抽样测试
+mdx_util export /path/to/file.mdd output_resources --count 100
+```
+
+文本导出格式为：词条名、原始内容、`</>` 结束标记。Compact HTML 词典会导出 compact 源文本，并额外生成 `output.txt.stylesheet.txt` 这类 stylesheet 文件。资源导出会把 MDD 里的资源 key 映射为输出目录下的相对路径；同名 MDD 资源会导出到 `<词典名>_mdd` 目录。
+
 ### `keygen` - 生成授权信息
 
 为加密或带密码词典生成相关授权信息。

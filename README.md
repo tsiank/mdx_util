@@ -112,6 +112,36 @@ mdx_util build-mdd /path/to/resources output.mdd "password"
 
 Useful for creating dictionary resource files containing images, audio, and other media.
 
+#### `export` - Restore Source Text or Resources
+Export dictionary text entries back to MDict source text format, or extract MDD binary resources into a directory:
+```bash
+# Export ZDB/MDX text to source text format
+mdx_util export /path/to/file.mdx output.txt
+
+# Export through MDX reader mode
+mdx_util export --mode mdx /path/to/file.mdx output.txt
+
+# Export MDX text and associated same-name MDD resources
+mdx_util export --mode mdx --with-mdd /path/to/file.mdx output.txt
+
+# Batch export MDX files in a directory
+mdx_util export /path/to/dictionaries output_directory
+
+# Batch export with an explicit output directory option
+mdx_util export /path/to/dictionaries --output-dir output_directory
+
+# Batch export MDX files and their associated MDD resources
+mdx_util export /path/to/dictionaries output_directory --with-mdd
+
+# Extract MDD resources into a directory
+mdx_util export /path/to/file.mdd output_resources
+
+# Export only the first N entries/resources
+mdx_util export /path/to/file.mdd output_resources --count 100
+```
+
+Text export writes records in `key`, raw content, `</>` format. Compact HTML dictionaries export the compact source text and a sidecar stylesheet file named `output.txt.stylesheet.txt`. Resource export preserves resource keys as relative file paths under the output directory; associated MDD resources are exported to a directory named `<dictionary>_mdd`.
+
 #### `keygen` - Generate Authorization Keys
 Generate encryption keys and registration codes for password-protected dictionaries:
 ```bash

@@ -10,6 +10,7 @@ use crate::test_db::run_test_db;
 mod build_mdd;
 mod convert_db;
 mod error_printer;
+mod export;
 mod fts_index;
 mod keygen;
 mod report;
@@ -205,6 +206,43 @@ enum Commands {
         #[arg(long, help = "Render HTML formatting (bold, italic, new lines, colors) to terminal")]
         render: bool,
     },
+
+    /// Export mdx text or mdd resources back to source files
+    #[command(
+        name = "export",
+        about = "Export MDX/ZDB text to source text or MDD resources to a directory",
+        after_help = "Examples:
+  mdx_util export input.mdx output.txt
+  mdx_util export --mode mdx input.mdx output.txt
+  mdx_util export --mode mdx --with-mdd input.mdx output.txt
+  mdx_util export input_directory output_directory --with-mdd
+  mdx_util export input.mdd output_resources"
+    )]
+    Export {
+        /// Path to the input MDX/MDD/ZDB file
+        #[arg(value_name = "FILE")]
+        file: String,
+
+        /// Output text file for MDX/ZDB text, or output directory for MDD resources
+        #[arg(value_name = "OUTPUT", required_unless_present = "output_dir")]
+        output: Option<String>,
+
+        /// Output directory for batch export
+        #[arg(long, value_name = "DIR", help = "Output directory for batch export")]
+        output_dir: Option<String>,
+
+        /// Export mode (zdb or mdx)
+        #[arg(long, value_name = "MODE", default_value = "zdb", help = "Export mode: zdb or mdx")]
+        mode: String,
+
+        /// Limit number of entries or resources to export
+        #[arg(long, value_name = "COUNT", help = "Limit number of entries or resources to export")]
+        count: Option<usize>,
+
+        /// Export associated .mdd resources when exporting .mdx files
+        #[arg(long, help = "Export associated .mdd resources when exporting .mdx files")]
+        with_mdd: bool,
+    },
 }
 
 fn main() {
@@ -268,6 +306,13 @@ fn run(args: &Args) -> Result<()> {
         Commands::Keygen { password, id } => keygen::run_keygen(password, id),
         Commands::FtsSearch { mdx_file, keyword, results, quiet, render } => {
             fts_index::run_fulltext_search(mdx_file, keyword, *results, *quiet, *render)
+        }
+        Commands::Export { file, output, output_dir, mode, count, with_mdd } => {
+            let output = output_dir
+                .as_ref()
+                .or(output.as_ref())
+                .ok_or_else(|| mdx::ZdbError::invalid_parameter("missing output path"))?;
+            export::run_export(file, output, mode == "mdx", *count, *with_mdd)
         }
     }
 }
